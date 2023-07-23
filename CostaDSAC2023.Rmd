@@ -1,0 +1,352 @@
+---
+title: "CostaDSAC2023"
+output: pdf_document
+date: "2023-03-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#library(readr)
+library(tidyverse)
+library(ggplot2)
+library(tidymodels)
+library(leaps)
+library(MASS)
+library(glmnet)
+library(dplyr)
+all2022data <- read_csv("all2022data.csv")
+```
+
+```{r regs}
+#cannot figure out the range of hc_x
+#filt1 = filter(all2022data, type == "X")
+#filt2 = filter(all2022data, hc_x > )
+
+all2022data$hit_location <- as.character(all2022data$hit_location)
+#spray_angle = -(atan((hc_x-130)/(213-hc_y))) + 3.14159/2
+
+linear_reg() |>
+     set_engine("lm") |>
+     fit(hit_distance_sc ~ bb_type + launch_speed, data = all2022data) |> 
+     tidy()
+
+linear_reg() |>
+     set_engine("lm") |>
+     fit(hit_distance_sc ~ bb_type + launch_speed + hc_x, data = all2022data) |> 
+     tidy()
+```
+
+```{r plots}
+ggplot(data = all2022data, 
+       mapping = aes(x = bb_type,
+                     y = hit_distance_sc)) +
+  geom_bar(stat="identity") 
+
+
+ggplot(data = all2022data, 
+       mapping = aes(x = hit_distance_sc,
+                     y = launch_speed)) +
+  geom_point() +
+  labs(title = "Relationship Between Hit Distance and Exit Velocity",
+       x = "Hit Distance (ft)",
+       y = "Exit Velocity (mph)")
+
+ggplot(data = all2022data, 
+       mapping = aes(x = hit_distance_sc,
+                     y = hc_x)) +
+  geom_point() +
+  labs(title = "Relationship Between Hit Distance and hc_x",
+       x = "Hit Distance (ft)",
+       y = "hc_x")
+
+ggplot(data = all2022data, 
+       mapping = aes(x = hit_distance_sc,
+                     y = hc_y)) +
+  geom_point() +
+  labs(title = "Relationship Between Hit Distance and hc_x",
+       x = "Hit Distance (ft)",
+       y = "hc_y")
+
+ggplot(data = all2022data, 
+       mapping = aes(x = hit_distance_sc,
+                     y = hit_location)) +
+  geom_point() +
+  labs(title = "Relationship Between Hit Distance and Hit Location",
+       x = "Hit Distance (ft)",
+       y = "Hit Location")
+
+ggplot(data = all2022data, 
+       mapping = aes(x = hc_x,
+                     y = hc_y,
+                     color = hit_location)) +
+  geom_point() +
+  labs(title = "Relationship Between hc_x and hc_y",
+       x = "hc_x",
+       y = "hc_y")
+
+```
+
+```{r santana}
+
+#filtering all of carlos Santanas hits
+santana = filter(all2022data, player_name == "Santana, Carlos")
+santana$hit_location <- as.character(santana$hit_location)
+
+#filtering santanas hits that are considered ground balls
+santana_ground = filter(santana, launch_angle <= 10)
+santana_ground$hit_location <- as.character(santana_ground$hit_location)
+
+#finding the proportion of ground balls hit that were pulled
+santana_pulled_ground0 = count(santana_ground, hc_x >= 125)
+santana_pulled_ground = santana_pulled_ground0[-1,]
+prop_ground = santana_pulled_ground['n']/count(santana_ground)
+
+#filtering santanas hits that are considered line drives
+santana_line = filter(santana, launch_angle > 10 & launch_angle <= 25)
+santana_line$hit_location <- as.character(santana_line$hit_location)
+
+#finding the proportion of line drives hit that were pulled
+santana_pulled_line0 = count(santana_line, hc_x >= 125)
+santana_pulled_line = santana_pulled_line0[-1,]
+prop_line = santana_pulled_line['n']/count(santana_line)
+
+#filtering santanas hits that are considered fly balls
+santana_fly = filter(santana, launch_angle > 25)
+santana_fly$hit_location <- as.character(santana_fly$hit_location)
+
+#finding the proportion of fly balls hit that were pulled
+santana_pulled_fly0 = count(santana_fly, hc_x >= 125)
+santana_pulled_fly = santana_pulled_fly0[-1,]
+prop_fly = santana_pulled_fly['n']/count(santana_fly)
+
+santana_props = data.frame(
+  hit_id = c("Ground Ball", "Line Drive", "Fly Ball"),
+  pull_prop = c(prop_ground[1,], prop_line[1,], prop_fly[1,])
+)
+santana_props
+
+ggplot(data = santana, 
+       mapping = aes(x = hc_x,
+                     y = hc_y,
+                     color = hit_location)) +
+  geom_point() +
+  scale_y_reverse() +
+  labs(title = "Relationship Between hc_x and hc_y for Carlos Santana",
+      subtitle = "All Balls Put in Play",
+       x = "Hit coordinate X of batted ball",
+       y = "Hit coordinate Y of batted ball")
+
+ggplot(data = santana_ground, 
+       mapping = aes(x = hc_x,
+                     y = hc_y,
+                     color = hit_location)) +
+  geom_point() +
+  scale_y_reverse() +
+  labs(title = "Relationship Between hc_x and hc_y for Carlos Santana",
+       subtitle = "Only Showing Ground Balls",
+       x = "Hit coordinate X of batted ball",
+       y = "Hit coordinate Y of batted ball")
+
+ggplot(data = santana_line, 
+       mapping = aes(x = hc_x,
+                     y = hc_y,
+                     color = hit_location)) +
+  geom_point() +
+  scale_y_reverse() +
+  labs(title = "Relationship Between hc_x and hc_y for Carlos Santana",
+       subtitle = "Only Showing Line Drives",
+       x = "Hit coordinate X of batted ball",
+       y = "Hit coordinate Y of batted ball")
+
+ggplot(data = santana_fly, 
+       mapping = aes(x = hc_x,
+                     y = hc_y,
+                     color = hit_location)) +
+  geom_point() +
+  scale_y_reverse() +
+  labs(title = "Relationship Between hc_x and hc_y for Carlos Santana",
+       subtitle = "Only Showing Fly Balls",
+       x = "Hit coordinate X of batted ball",
+       y = "Hit coordinate Y of batted ball")
+
+
+```
+
+```{r gallo}
+
+batters <- all2022data %>% group_by(player_name) 
+
+counts <- batters %>% tally()
+
+filtered_obs <- counts %>% filter(n > 180)
+
+twohundred_obs <- all2022data %>% semi_join(filtered_obs, by = "player_name")
+
+twohundred_obs <- twohundred_obs %>% filter(!is.na(hc_x))
+
+twohundred_obs <- twohundred_obs %>% mutate(is_pulled = ifelse(hc_x > 125, 1, 0))
+
+twohundred_obs %>% group_by(player_name) %>% summarize(prop_pulled = sum(is_pulled)/n(), 
+                                                       num_obs = n()) %>% arrange(desc(prop_pulled))
+
+```
+```{r func}
+
+player_hits <- function(name) {
+  player = filter(all2022data, player_name == name)
+  player$hit_location <- as.character(player$hit_location) 
+
+  player_ground = filter(player, launch_angle <= 10)
+  player_ground$hit_location <- as.character(player_ground$hit_location)
+
+  player_ground_pulled1 = count(player_ground, hc_x >= 125)
+  player_ground_pulled = player_ground_pulled1[-1,]
+  prop_ground = player_ground_pulled['n']/count(player_ground)
+
+  #filtering players hits that are considered line drives
+  player_line = filter(player, launch_angle > 10 & launch_angle <= 25)
+  player_line$hit_location <- as.character(player_line$hit_location)
+
+  #finding the proportion of line drives hit that were pulled
+  player_pulled_line0 = count(player_line, hc_x >= 125)
+  player_pulled_line = player_pulled_line0[-1,]
+  prop_line = player_pulled_line['n']/count(player_line)
+
+  #filtering players hits that are considered fly balls
+  player_fly = filter(player, launch_angle > 25)
+  player_fly$hit_location <- as.character(player_fly$hit_location)
+
+  #finding the proportion of fly balls hit that were pulled
+  player_pulled_fly0 = count(player_fly, hc_x >= 125)
+  player_pulled_fly = player_pulled_fly0[-1,]
+  prop_fly = player_pulled_fly['n']/count(player_fly)
+
+  player_props = data.frame(
+    hit_id = c("Ground Ball", "Line Drive", "Fly Ball"),
+    pull_prop = c(prop_ground[1,], prop_line[1,], prop_fly[1,])
+  )
+  #player_props
+  
+  hit_plot <- ggplot(data = player, 
+                     mapping = aes(x = hc_x, 
+                                   y = hc_y,
+                                   color = hit_location)) +
+    geom_point() +
+    scale_y_reverse() +
+    labs(title = paste("Relationship Between hc_x and hc_y for ", name),
+        subtitle = "All Balls Put in Play",
+         x = "Hit coordinate X of batted ball",
+         y = "Hit coordinate Y of batted ball")
+  
+  ground_plot <- ggplot(data = player_ground, 
+                        mapping = aes(x = hc_x,
+                                      y = hc_y,
+                                      color = hit_location)) +
+    geom_point() +
+    scale_y_reverse() +
+    labs(title = paste("Relationship Between hc_x and hc_y for ", name),
+         subtitle = "Only Showing Ground Balls",
+         x = "Hit coordinate X of batted ball",
+         y = "Hit coordinate Y of batted ball")
+  
+  line_plot <-ggplot(data = player_line, 
+                     mapping = aes(x = hc_x,
+                                   y = hc_y,
+                                   color = hit_location)) +
+    geom_point() +
+    scale_y_reverse() +
+    labs(title = paste("Relationship Between hc_x and hc_y for ", name),
+         subtitle = "Only Showing Line Drives",
+         x = "Hit coordinate X of batted ball",
+         y = "Hit coordinate Y of batted ball")
+  
+  fly_plot <- ggplot(data = player_fly, 
+                     mapping = aes(x = hc_x,
+                                   y = hc_y,
+                                   color = hit_location)) +
+    geom_point() +
+    scale_y_reverse() +
+    labs(title = paste("Relationship Between hc_x and hc_y for ", name),
+         subtitle = "Only Showing Fly Balls",
+         x = "Hit coordinate X of batted ball",
+         y = "Hit coordinate Y of batted ball")
+  
+  # player, player_ground, player_line, player_fly,
+  output = list(player_props, hit_plot, ground_plot, line_plot, fly_plot)
+  
+  return(output)
+}
+
+```
+
+
+
+```{r santana}
+
+player_hits("Santana, Carlos")
+
+```
+
+```{r gallo}
+
+#player_hits("Gallo, Joey")
+
+```
+
+```{r rizzo}
+
+player_hits("Rizzo, Anthony")
+
+```
+
+```{r varsho}
+
+#player_hits("Varsho, Daulton")
+
+```
+
+```{r ruiz}
+
+player_hits("Ruiz, Keibert")
+
+```
+
+```{r heim}
+
+player_hits("Heim, Jonah")
+
+```
+
+```{r releigh}
+
+player_hits("Raleigh, Cal")
+
+```
+
+```{r ramirez}
+
+player_hits("Ramírez, José")
+
+```
+
+```{r santander}
+
+player_hits("Santander, Anthony")
+
+```
+
+```{r renfigo}
+
+player_hits("Rengifo, Luis")
+
+```
+
+```{r naylor}
+
+player_hits("Naylor, Josh")
+
+```
+
