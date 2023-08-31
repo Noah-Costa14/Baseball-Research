@@ -181,7 +181,7 @@ batters <- all2022data %>% group_by(player_name)
 
 counts <- batters %>% tally()
 
-filtered_obs <- counts %>% filter(n > 180)
+filtered_obs <- counts %>% filter(n > 176)
 
 twohundred_obs <- all2022data %>% semi_join(filtered_obs, by = "player_name")
 
@@ -203,8 +203,8 @@ player_hits <- function(name) {
   player_ground$hit_location <- as.character(player_ground$hit_location)
 
   player_ground_pulled1 = count(player_ground, hc_x >= 125)
-  player_ground_pulled = player_ground_pulled1[-1,]
-  prop_ground = player_ground_pulled['n']/count(player_ground)
+  player_pulled_ground = player_ground_pulled1[-1,]
+  prop_ground = player_pulled_ground['n']/count(player_ground)
 
   #filtering players hits that are considered line drives
   player_line = filter(player, launch_angle > 10 & launch_angle <= 25)
@@ -224,9 +224,16 @@ player_hits <- function(name) {
   player_pulled_fly = player_pulled_fly0[-1,]
   prop_fly = player_pulled_fly['n']/count(player_fly)
 
+  player_ground_number <- player_pulled_ground$n
+  player_line_number <- player_pulled_line$n
+  player_fly_number <- player_pulled_fly$n
+  
   player_props = data.frame(
-    hit_id = c("Ground Ball", "Line Drive", "Fly Ball"),
-    pull_prop = c(prop_ground[1,], prop_line[1,], prop_fly[1,])
+    Hit_Type = c("Ground Ball", "Line Drive", "Fly Ball"),
+    Pull_Percentage = c(prop_ground[1,]*100,  prop_line[1,]*100, 
+                        prop_fly[1,]*100),
+    Pulled_BIP = c(player_ground_number, player_line_number, 
+                      player_fly_number)
   )
   #player_props
   
@@ -275,10 +282,12 @@ player_hits <- function(name) {
          y = "Hit coordinate Y of batted ball")
   
   # player, player_ground, player_line, player_fly,
-  output = list(player_props, hit_plot, ground_plot, line_plot, fly_plot)
+  output = list(format(player_props, digits = 3), hit_plot, ground_plot, line_plot, fly_plot)
   
   return(output)
 }
+
+
 
 ```
 
